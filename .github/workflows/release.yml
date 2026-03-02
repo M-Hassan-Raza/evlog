@@ -53,14 +53,13 @@ jobs:
       - name: Create GitHub Releases
         if: steps.changesets.outputs.published == 'true'
         run: |
-          for pkg in $(echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -c '.[]'); do
-            name=$(echo "$pkg" | jq -r '.name')
-            version=$(echo "$pkg" | jq -r '.version')
-            tag="${name}@${version}"
+          for pkg in $(echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -r '.[] | .name + "@" + .version'); do
+            version="${pkg##*@}"
+            tag="v${version}"
             if gh release view "$tag" > /dev/null 2>&1; then
               echo "Release $tag already exists, skipping"
             else
-              gh release create "$tag" --title "$tag" --generate-notes --draft
+              gh release create "$tag" --draft --generate-notes --title "$tag"
             fi
           done
         env:
