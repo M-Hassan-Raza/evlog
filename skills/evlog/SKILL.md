@@ -1,6 +1,6 @@
 ---
 name: review-logging-patterns
-description: Review code for logging patterns and suggest evlog adoption. Guides setup on Nuxt, Next.js, TanStack Start, Nitro, Hono, Express, Fastify, Elysia, Cloudflare Workers, and standalone TypeScript. Detects console.log spam, unstructured errors, and missing context. Covers wide events, structured errors, drain adapters (Axiom, OTLP, PostHog, Sentry, Better Stack), sampling, and enrichers.
+description: Review code for logging patterns and suggest evlog adoption. Guides setup on Nuxt, Next.js, TanStack Start, Nitro, Hono, Express, Fastify, Elysia, NestJS, Cloudflare Workers, and standalone TypeScript. Detects console.log spam, unstructured errors, and missing context. Covers wide events, structured errors, drain adapters (Axiom, OTLP, PostHog, Sentry, Better Stack), sampling, and enrichers.
 license: MIT
 metadata:
   author: HugoRCD
@@ -457,6 +457,57 @@ app.use(evlog({
     if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
   },
 }))
+```
+
+### NestJS
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common'
+import { EvlogModule } from 'evlog/nestjs'
+
+@Module({
+  imports: [EvlogModule.forRoot()],
+})
+export class AppModule {}
+```
+
+`EvlogModule.forRoot()` registers a global middleware. Use `useLogger()` to access the request-scoped logger from any controller or service:
+
+```typescript
+import { useLogger } from 'evlog/nestjs'
+
+async function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+Full pipeline with drain, enrich, and tail sampling:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+EvlogModule.forRoot({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+})
+```
+
+For async configuration with NestJS DI, use `forRootAsync()`:
+
+```typescript
+EvlogModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config) => ({
+    drain: createAxiomDrain({ token: config.get('AXIOM_TOKEN') }),
+  }),
+})
 ```
 
 ### Cloudflare Workers

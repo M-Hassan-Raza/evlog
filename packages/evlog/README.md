@@ -464,6 +464,28 @@ Use `useLogger()` to access the logger from anywhere in the call stack.
 
 See the full [elysia example](https://github.com/HugoRCD/evlog/tree/main/examples/elysia) for a complete working project.
 
+## NestJS
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common'
+import { EvlogModule } from 'evlog/nestjs'
+
+@Module({
+  imports: [EvlogModule.forRoot()],
+})
+export class AppModule {}
+
+// In any controller or service:
+import { useLogger } from 'evlog/nestjs'
+const log = useLogger()
+log.set({ users: { count: 42 } })
+```
+
+`EvlogModule.forRoot()` registers a global middleware that creates a request-scoped logger for every request. Use `useLogger()` to access it anywhere in the call stack, or `req.log` directly. Supports `forRootAsync()` for async configuration.
+
+See the full [nestjs example](https://github.com/HugoRCD/evlog/tree/main/examples/nestjs) for a complete working project.
+
 ## Browser
 
 Use the `log` API on the client side for structured browser logging:
@@ -1049,6 +1071,7 @@ try {
 | **Express** | `app.use(evlog())` with `import { evlog } from 'evlog/express'` ([example](./examples/express)) |
 | **Fastify** | `app.register(evlog)` with `import { evlog } from 'evlog/fastify'` ([example](./examples/fastify)) |
 | **Elysia** | `.use(evlog())` with `import { evlog } from 'evlog/elysia'` ([example](./examples/elysia)) |
+| **NestJS** | `EvlogModule.forRoot()` with `import { EvlogModule } from 'evlog/nestjs'` ([example](./examples/nestjs)) |
 | **Analog** | Nitro v2 module setup |
 | **Vinxi** | Nitro v2 module setup |
 | **SolidStart** | Nitro v2 module setup ([example](./examples/solidstart)) |

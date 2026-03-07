@@ -682,6 +682,57 @@ await app.register(evlog, {
 - Lifecycle: `onRequest` creates the logger → `onResponse` emits with status → `onError` captures errors and prevents double emit
 - `useLogger()` uses `AsyncLocalStorage` propagated via `storage.run(logger, () => done())` in `onRequest`
 
+### NestJS
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common'
+import { EvlogModule } from 'evlog/nestjs'
+
+@Module({
+  imports: [EvlogModule.forRoot()],
+})
+export class AppModule {}
+```
+
+`EvlogModule.forRoot()` registers a global middleware. Use `useLogger()` to access the request-scoped logger from any controller or service:
+
+```typescript
+import { useLogger } from 'evlog/nestjs'
+
+function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+The module supports the full evlog pipeline — `drain`, `enrich`, and `keep` callbacks:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+EvlogModule.forRoot({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+})
+```
+
+For async configuration, use `forRootAsync()` with NestJS dependency injection:
+
+```typescript
+EvlogModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config) => ({
+    drain: createAxiomDrain({ token: config.get('AXIOM_TOKEN') }),
+  }),
+})
+```
+
 ### Nitro v2
 
 ```typescript

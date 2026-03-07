@@ -23,6 +23,7 @@
     "express",
     "hono",
     "elysia",
+    "nestjs",
     "typescript"
   ],
   "license": "MIT",
@@ -104,6 +105,10 @@
     "./fastify": {
       "types": "./dist/fastify/index.d.mts",
       "import": "./dist/fastify/index.mjs"
+    },
+    "./nestjs": {
+      "types": "./dist/nestjs/index.d.mts",
+      "import": "./dist/nestjs/index.mjs"
     }
   },
   "main": "./dist/index.mjs",
@@ -166,6 +171,9 @@
       ],
       "fastify": [
         "./dist/fastify/index.d.mts"
+      ],
+      "nestjs": [
+        "./dist/nestjs/index.d.mts"
       ]
     }
   },
@@ -194,6 +202,7 @@
     "consola": "^3.4.2",
     "elysia": "^1.4.27",
     "express": "^5.2.1",
+    "@nestjs/common": "^10.0.0",
     "fastify": "^5.2.1",
     "h3": "^1.15.5",
     "happy-dom": "^20.7.2",
@@ -216,7 +225,8 @@
     "hono": "",
     "express": ">=4.21.0",
     "elysia": ">=1.0.0",
-    "fastify": ">=4.0.0"
+    "fastify": ">=4.0.0",
+    "@nestjs/common": ">=9.0.0"
   },
   "peerDependenciesMeta": {
     "@nuxt/kit": {
@@ -250,6 +260,9 @@
       "optional": true
     },
     "fastify": {
+      "optional": true
+    },
+    "@nestjs/common": {
       "optional": true
     }
   }
