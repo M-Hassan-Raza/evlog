@@ -25,6 +25,18 @@ Here are the available types and scopes:
 - nuxthub (the nuxthub package)
 - deps (the dependencies)
 - repo (the repository)
+- nuxt (Nuxt module)
+- nitro (Nitro plugin)
+- next (Next.js integration)
+- tanstack-start (TanStack Start integration)
+- hono (Hono middleware)
+- express (Express middleware)
+- elysia (Elysia plugin)
+- fastify (Fastify plugin)
+- nestjs (NestJS middleware)
+- sveltekit (SvelteKit integration)
+- workers (Cloudflare Workers adapter)
+- dx (developer experience improvements)
 -->
 
 ### 🔗 Linked issue

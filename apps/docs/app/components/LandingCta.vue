@@ -64,7 +64,7 @@ onMounted(() => {
     <div class="relative z-10 pt-24 md:pt-32 text-center max-w-2xl mx-auto px-6">
       <Motion
         :initial="prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }"
-        :in-view="{ opacity: 1, y: 0 }"
+        :while-in-view="{ opacity: 1, y: 0 }"
         :transition="{ duration: 0.5 }"
         :in-view-options="{ once: true }"
       >
@@ -82,8 +82,7 @@ onMounted(() => {
             </h2>
           </div>
           <p class="text-base leading-relaxed text-zinc-200 mb-10">
-            Wide events, structured errors, dead simple setup.<br class="hidden sm:block">
-            Set up evlog in 10 minutes. Your future self will thank you.
+            <slot name="description" mdc-unwrap="p" />
           </p>
 
           <div class="flex flex-wrap items-center justify-center gap-4">

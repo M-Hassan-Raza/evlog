@@ -375,43 +375,116 @@ Notes:
 
 ## Hono
 
-Use the standalone API to create one wide event per request from a Hono middleware.
-
 ```typescript
 // src/index.ts
-import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import { createRequestLogger, initLogger } from 'evlog'
+import { initLogger } from 'evlog'
+import { evlog, type EvlogVariables } from 'evlog/hono'
 
-initLogger({
-  env: { service: 'hono-api' },
+initLogger({ env: { service: 'hono-api' } })
+
+const app = new Hono<EvlogVariables>()
+app.use(evlog())
+
+app.get('/api/users', (c) => {
+  const log = c.get('log')
+  log.set({ users: { count: 42 } })
+  return c.json({ users: [] })
 })
-
-const app = new Hono()
-
-app.use('*', async (c, next) => {
-  const startedAt = Date.now()
-  const log = createRequestLogger({ method: c.req.method, path: c.req.path })
-
-  try {
-    await next()
-  } catch (error) {
-    log.error(error as Error)
-    throw error
-  } finally {
-    log.emit({
-      status: c.res.status,
-      duration: Date.now() - startedAt,
-    })
-  }
-})
-
-app.get('/health', (c) => c.json({ ok: true }))
-
-serve({ fetch: app.fetch, port: 3000 })
 ```
 
 See the full [hono example](https://github.com/HugoRCD/evlog/tree/main/examples/hono) for a complete working project.
+
+## Express
+
+```typescript
+// src/index.ts
+import express from 'express'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/express'
+
+initLogger({ env: { service: 'express-api' } })
+
+const app = express()
+app.use(evlog())
+
+app.get('/api/users', (req, res) => {
+  req.log.set({ users: { count: 42 } })
+  res.json({ users: [] })
+})
+```
+
+Use `useLogger()` to access the logger from anywhere in the call stack without passing `req`.
+
+See the full [express example](https://github.com/HugoRCD/evlog/tree/main/examples/express) for a complete working project.
+
+## Fastify
+
+```typescript
+// src/index.ts
+import Fastify from 'fastify'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/fastify'
+
+initLogger({ env: { service: 'fastify-api' } })
+
+const app = Fastify({ logger: false })
+await app.register(evlog)
+
+app.get('/api/users', async (request) => {
+  request.log.set({ users: { count: 42 } })
+  return { users: [] }
+})
+```
+
+`request.log` is the evlog wide-event logger (shadows Fastify's built-in pino logger on the request). Use `useLogger()` to access the logger from anywhere in the call stack.
+
+See the full [fastify example](https://github.com/HugoRCD/evlog/tree/main/examples/fastify) for a complete working project.
+
+## Elysia
+
+```typescript
+// src/index.ts
+import { Elysia } from 'elysia'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/elysia'
+
+initLogger({ env: { service: 'elysia-api' } })
+
+const app = new Elysia()
+  .use(evlog())
+  .get('/api/users', ({ log }) => {
+    log.set({ users: { count: 42 } })
+    return { users: [] }
+  })
+  .listen(3000)
+```
+
+Use `useLogger()` to access the logger from anywhere in the call stack.
+
+See the full [elysia example](https://github.com/HugoRCD/evlog/tree/main/examples/elysia) for a complete working project.
+
+## NestJS
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common'
+import { EvlogModule } from 'evlog/nestjs'
+
+@Module({
+  imports: [EvlogModule.forRoot()],
+})
+export class AppModule {}
+
+// In any controller or service:
+import { useLogger } from 'evlog/nestjs'
+const log = useLogger()
+log.set({ users: { count: 42 } })
+```
+
+`EvlogModule.forRoot()` registers a global middleware that creates a request-scoped logger for every request. Use `useLogger()` to access it anywhere in the call stack, or `req.log` directly. Supports `forRootAsync()` for async configuration.
+
+See the full [nestjs example](https://github.com/HugoRCD/evlog/tree/main/examples/nestjs) for a complete working project.
 
 ## Browser
 
@@ -991,16 +1064,24 @@ try {
 |-----------|-------------|
 | **Nuxt** | `modules: ['evlog/nuxt']` |
 | **Next.js** | `createEvlog()` factory with `import { createEvlog } from 'evlog/next'` ([example](./examples/nextjs)) |
+| **SvelteKit** | `export const { handle, handleError } = createEvlogHooks()` with `import { createEvlogHooks } from 'evlog/sveltekit'` ([example](./examples/sveltekit)) |
 | **Nitro v3** | `modules: [evlog()]` with `import evlog from 'evlog/nitro/v3'` |
 | **Nitro v2** | `modules: [evlog()]` with `import evlog from 'evlog/nitro'` |
+| **TanStack Start** | Nitro v3 module setup ([example](./examples/tanstack-start)) |
+| **NestJS** | `EvlogModule.forRoot()` with `import { EvlogModule } from 'evlog/nestjs'` ([example](./examples/nestjs)) |
+| **Express** | `app.use(evlog())` with `import { evlog } from 'evlog/express'` ([example](./examples/express)) |
+| **Hono** | `app.use(evlog())` with `import { evlog } from 'evlog/hono'` ([example](./examples/hono)) |
+| **Fastify** | `app.register(evlog)` with `import { evlog } from 'evlog/fastify'` ([example](./examples/fastify)) |
+| **Elysia** | `.use(evlog())` with `import { evlog } from 'evlog/elysia'` ([example](./examples/elysia)) |
+| **Cloudflare Workers** | Manual setup with `import { initLogger, createRequestLogger } from 'evlog'` ([example](./examples/workers)) |
+| **Custom** | Build your own with `import { createMiddlewareLogger } from 'evlog/toolkit'` ([guide](https://evlog.dev/frameworks/custom-integration)) |
 | **Analog** | Nitro v2 module setup |
 | **Vinxi** | Nitro v2 module setup |
 | **SolidStart** | Nitro v2 module setup ([example](./examples/solidstart)) |
-| **TanStack Start** | Nitro v3 module setup ([example](./examples/tanstack-start)) |
 
 ## Agent Skills
 
-evlog provides [Agent Skills](https://github.com/boristane/agent-skills) to help AI coding assistants understand and implement proper logging patterns in your codebase.
+evlog provides [Agent Skills](https://www.evlog.dev/getting-started/agent-skills) to help AI coding assistants understand and implement proper logging patterns in your codebase.
 
 ### Installation
 

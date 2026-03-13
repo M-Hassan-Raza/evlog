@@ -13,6 +13,11 @@ const adapters = [
   { name: 'Better Stack', icon: 'i-simple-icons-betterstack' },
 ]
 
+const props = defineProps<{
+  link?: string
+  linkLabel?: string
+}>()
+
 const pills = [
   { label: 'Batching', icon: 'i-lucide-layers' },
   { label: 'Retry & backoff', icon: 'i-lucide-refresh-cw' },
@@ -235,24 +240,24 @@ function setupCanvas() {
       <div class="flex flex-col gap-8">
         <Motion
           :initial="prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }"
-          :in-view="{ opacity: 1, y: 0 }"
+          :while-in-view="{ opacity: 1, y: 0 }"
           :transition="{ duration: 0.5 }"
           :in-view-options="{ once: true }"
         >
           <div>
-            <p class="section-label">
-              Drain Pipeline
+            <p v-if="$slots.headline" class="section-label">
+              <slot name="headline" mdc-unwrap="p" />
             </p>
             <div class="relative mb-4">
               <h2 class="section-title">
-                Send everywhere<span class="text-primary">.</span>
+                <slot name="title" mdc-unwrap="p" /><span class="text-primary">.</span>
               </h2>
-              <div aria-hidden="true" class="absolute inset-0 section-title blur-xs animate-pulse">
-                Send everywhere<span class="text-primary">.</span>
+              <div aria-hidden="true" class="absolute inset-0 section-title blur-xs animate-pulse pointer-events-none">
+                <slot name="title" mdc-unwrap="p" /><span class="text-primary">.</span>
               </div>
             </div>
-            <p class="max-w-md text-sm leading-relaxed text-zinc-400">
-              Batched writes, automatic retries with backoff, and fan-out to multiple destinations. Your logs flow through a pipeline that never blocks your response.
+            <p v-if="$slots.description" class="max-w-md text-sm leading-relaxed text-zinc-400">
+              <slot name="description" mdc-unwrap="p" />
             </p>
             <div class="mt-5 flex flex-wrap gap-2">
               <span
@@ -264,8 +269,8 @@ function setupCanvas() {
                 {{ pill.label }}
               </span>
             </div>
-            <NuxtLink to="/adapters/overview" class="mt-4 inline-flex items-center gap-1.5 font-mono text-xs text-zinc-500 hover:text-accent-blue transition-colors">
-              Explore adapters
+            <NuxtLink v-if="props.link" :to="props.link" class="mt-4 inline-flex items-center gap-1.5 font-mono text-xs text-zinc-500 hover:text-accent-blue transition-colors">
+              {{ props.linkLabel || 'Learn more' }}
               <UIcon name="i-lucide-arrow-right" class="size-3" />
             </NuxtLink>
           </div>
@@ -273,7 +278,7 @@ function setupCanvas() {
 
         <Motion
           :initial="prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }"
-          :in-view="{ opacity: 1, y: 0 }"
+          :while-in-view="{ opacity: 1, y: 0 }"
           :transition="{ duration: 0.5, delay: 0.15 }"
           :in-view-options="{ once: true }"
         >
@@ -317,7 +322,7 @@ function setupCanvas() {
 
       <Motion
         :initial="prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }"
-        :in-view="{ opacity: 1, y: 0 }"
+        :while-in-view="{ opacity: 1, y: 0 }"
         :transition="{ duration: 0.5, delay: 0.1 }"
         :in-view-options="{ once: true }"
       >

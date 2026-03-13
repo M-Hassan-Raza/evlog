@@ -2,6 +2,17 @@
 
 A TypeScript logging library focused on **wide events** and structured error handling.
 
+## Keeping This File Updated
+
+This file is a living document. **Update it proactively** whenever you encounter any of the following:
+
+- **Recurring mistake**: You made the same error twice, or you notice a pattern that's easy to get wrong (wrong import path, deprecated API, incorrect assumption) → add a note under the relevant section or a callout in Development Guidelines.
+- **Explicit guidance from the maintainer**: The maintainer corrects your approach, tells you to always/never do something, or points out a structural rule → capture it here immediately so future sessions follow the same rule.
+- **New pattern established**: A new convention is agreed on (file to update, naming rule, architecture decision) → document it so it's applied consistently going forward.
+- **Full update / reset**: If the maintainer says something equivalent to "everything needs to be updated" or "go through all X and make sure they're consistent" → after completing the work, add a note here summarizing what was done and what invariant to maintain.
+
+When updating this file, be specific and actionable. Prefer short targeted notes over long prose. Place notes near the relevant section they apply to.
+
 Inspired by [Logging Sucks](https://loggingsucks.com/) by [Boris Tane](https://x.com/boristane).
 
 ## Philosophy
@@ -40,6 +51,7 @@ evlog/
 │       ├── src/
 │       │   ├── nuxt/        # Nuxt module
 │       │   ├── nitro/       # Nitro plugin
+│       │   ├── shared/      # Toolkit: building blocks for custom framework integrations (evlog/toolkit)
 │       │   ├── adapters/    # Log drain adapters (Axiom, OTLP, PostHog, Sentry, Better Stack)
 │       │   ├── enrichers/   # Built-in enrichers (UserAgent, Geo, RequestSize, TraceContext)
 │       │   └── runtime/     # Runtime code (client/, server/, utils/)
@@ -68,20 +80,27 @@ export default defineEventHandler(async (event) => {
 
 ### Standalone TypeScript (scripts, workers, CLI)
 
-Use `initLogger()` once at startup, then `createRequestLogger()` for each logical operation.
+Use `initLogger()` once at startup, then `createLogger()` for each logical operation.
 
 ```typescript
 // scripts/sync-job.ts
-import { initLogger, createRequestLogger } from 'evlog'
+import { initLogger, createLogger } from 'evlog'
 
 initLogger({
-  env: { service: 'sync-worker', environment: 'production' },
+ env: { service: 'sync-worker', environment: 'production' },
 })
 
-const log = createRequestLogger({ jobId: job.id })
-log.set({ source: job.source, target: job.target })
+const log = createLogger({ jobId: job.id, source: job.source, target: job.target })
 log.set({ recordsSynced: 150 })
 log.emit() // Manual emit required
+```
+
+For HTTP request contexts specifically, use `createRequestLogger()` which pre-populates `method`, `path`, and `requestId`:
+
+```typescript
+import { createRequestLogger } from 'evlog'
+
+const log = createRequestLogger({ method: 'POST', path: '/api/checkout' })
 ```
 
 ### Simple Logging (anywhere)
@@ -141,6 +160,8 @@ try {
 
 ## Framework Integration
 
+> **Creating a new framework integration?** Follow the skill at `.agents/skills/create-framework-integration/SKILL.md`. It covers all touchpoints: source code, build config, package exports, tests, example app, and all documentation updates.
+
 ### Nuxt
 
 ```typescript
@@ -162,6 +183,7 @@ export default defineNuxtConfig({
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | `boolean` | `true` | Globally enable/disable all logging. When `false`, all operations become no-ops |
+| `console` | `boolean` | `true` | Enable/disable browser console output. When `false`, client logs are suppressed in DevTools but still sent via transport |
 | `env.service` | `string` | `'app'` | Service name shown in logs |
 | `env.environment` | `string` | Auto-detected | Environment name |
 | `include` | `string[]` | `undefined` | Route patterns to log (glob). If not set, all routes are logged |
@@ -489,6 +511,229 @@ export const Route = createFileRoute('/api/checkout')({
 })
 ```
 
+### Hono
+
+```typescript
+import { Hono } from 'hono'
+import { initLogger } from 'evlog'
+import { evlog, type EvlogVariables } from 'evlog/hono'
+
+initLogger({ env: { service: 'my-api' } })
+
+const app = new Hono<EvlogVariables>()
+app.use(evlog())
+
+app.get('/api/users', (c) => {
+  const log = c.get('log')
+  log.set({ users: { count: 42 } })
+  return c.json({ users: [] })
+})
+```
+
+The middleware supports the full evlog pipeline — `drain`, `enrich`, and `keep` callbacks — ensuring feature parity with Nuxt and Next.js:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+app.use(evlog({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+}))
+```
+
+### Express
+
+```typescript
+import express from 'express'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/express'
+
+initLogger({ env: { service: 'my-api' } })
+
+const app = express()
+app.use(evlog())
+
+app.get('/api/users', (req, res) => {
+  req.log.set({ users: { count: 42 } })
+  res.json({ users: [] })
+})
+```
+
+Use `useLogger()` to access the logger from anywhere in the call stack without passing `req`:
+
+```typescript
+import { useLogger } from 'evlog/express'
+
+function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+The middleware supports the full evlog pipeline — `drain`, `enrich`, and `keep` callbacks:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+app.use(evlog({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+}))
+```
+
+### Elysia
+
+```typescript
+import { Elysia } from 'elysia'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/elysia'
+
+initLogger({ env: { service: 'my-api' } })
+
+const app = new Elysia()
+  .use(evlog())
+  .get('/api/users', ({ log }) => {
+    log.set({ users: { count: 42 } })
+    return { users: [] }
+  })
+  .listen(3000)
+```
+
+Use `useLogger()` to access the logger from anywhere in the call stack:
+
+```typescript
+import { useLogger } from 'evlog/elysia'
+
+function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+The plugin supports the full evlog pipeline — `drain`, `enrich`, and `keep` callbacks:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+app.use(evlog({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+}))
+```
+
+### Fastify
+
+```typescript
+import Fastify from 'fastify'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/fastify'
+
+initLogger({ env: { service: 'my-api' } })
+
+const app = Fastify()
+await app.register(evlog)
+
+app.get('/api/users', async (request) => {
+  request.log.set({ users: { count: 42 } })
+  return { users: [] }
+})
+```
+
+Use `useLogger()` to access the logger from anywhere in the call stack:
+
+```typescript
+import { useLogger } from 'evlog/fastify'
+
+function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+The plugin supports the full evlog pipeline — `drain`, `enrich`, and `keep` callbacks:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+await app.register(evlog, {
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+})
+```
+
+**Key Fastify specifics:**
+- `request.log` is the evlog wide-event logger (shadows Fastify's built-in pino logger on the request; plugin encapsulation is broken via `Symbol.for('skip-override')`, no extra dependency)
+- Fastify's built-in pino logger stays available via `fastify.log` — evlog complements it for wide events
+- Lifecycle: `onRequest` creates the logger → `onResponse` emits with status → `onError` captures errors and prevents double emit
+- `useLogger()` uses `AsyncLocalStorage` propagated via `storage.run(logger, () => done())` in `onRequest`
+
+### NestJS
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common'
+import { EvlogModule } from 'evlog/nestjs'
+
+@Module({
+  imports: [EvlogModule.forRoot()],
+})
+export class AppModule {}
+```
+
+`EvlogModule.forRoot()` registers a global middleware. Use `useLogger()` to access the request-scoped logger from any controller or service:
+
+```typescript
+import { useLogger } from 'evlog/nestjs'
+
+function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+The module supports the full evlog pipeline — `drain`, `enrich`, and `keep` callbacks:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+EvlogModule.forRoot({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+})
+```
+
+For async configuration, use `forRootAsync()` with NestJS dependency injection:
+
+```typescript
+EvlogModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config) => ({
+    drain: createAxiomDrain({ token: config.get('AXIOM_TOKEN') }),
+  }),
+})
+```
+
 ### Nitro v2
 
 ```typescript
@@ -510,6 +755,28 @@ import { defineEventHandler } from 'h3'
 import { useLogger } from 'evlog/nitro'
 import { createError } from 'evlog'
 ```
+
+## Documentation Invariants
+
+Rules established through past work — maintain these actively.
+
+### User-facing framework docs live in the skill, not here
+
+`skills/evlog/SKILL.md` is the source of truth for user-facing documentation (framework setup, adapters, enrichers). **When a new framework/adapter/enricher is added, update `skills/evlog/SKILL.md` first** — not this file.
+
+This file retains framework sections as development context (useful for understanding the codebase), but the internal skills (`.agents/skills/`) mandate updating the public skill, not this file.
+
+### Hono does not export `useLogger()`
+
+`evlog/hono` only exposes `evlog` and `EvlogVariables`. Logger access is via `c.get('log')` in handlers. Do **not** import or document `useLogger` for Hono — it doesn't exist. The other frameworks (Express, Fastify, Elysia) do export `useLogger()`.
+
+### `evlog/toolkit` is the public entrypoint for `src/shared/`
+
+The `src/shared/` directory is exposed as `evlog/toolkit` (not `evlog/shared`). The directory stays named `shared/` internally, but the public entrypoint is `toolkit`. All framework integrations import from `../shared/*` internally. `extractErrorStatus` lives in `shared/errors.ts` (re-exported from `nitro.ts` for backward compatibility). The toolkit API is marked `@beta`.
+
+### README.md is a symlink
+
+`README.md` at the repo root is a symlink to `packages/evlog/README.md`. Edit the source (`packages/evlog/README.md`) directly — it's the same file.
 
 ## Development Guidelines
 
@@ -656,6 +923,9 @@ This repository includes agent skills for AI-assisted code review and evlog adop
 | Skill | Description |
 |-------|-------------|
 | `skills/evlog` | Review code for logging patterns, suggest evlog adoption, guide wide event design |
+| `.agents/skills/create-adapter` | Create a new drain adapter (Axiom, OTLP, Sentry, etc.) |
+| `.agents/skills/create-enricher` | Create a new event enricher (User Agent, Geo, etc.) |
+| `.agents/skills/create-framework-integration` | Create a new framework integration (Hono, Elysia, Fastify, etc.) |
 
 ### Skill Structure
 

@@ -1,6 +1,6 @@
 ---
 name: review-logging-patterns
-description: Review code for logging patterns and suggest evlog adoption. Guides setup on Nuxt, Next.js, TanStack Start, Nitro, Hono, Cloudflare Workers, and standalone TypeScript. Detects console.log spam, unstructured errors, and missing context. Covers wide events, structured errors, drain adapters (Axiom, OTLP, PostHog, Sentry, Better Stack), sampling, and enrichers.
+description: Review code for logging patterns and suggest evlog adoption. Guides setup on Nuxt, Next.js, SvelteKit, Nitro, TanStack Start, NestJS, Express, Hono, Fastify, Elysia, Cloudflare Workers, and standalone TypeScript. Detects console.log spam, unstructured errors, and missing context. Covers wide events, structured errors, drain adapters (Axiom, OTLP, PostHog, Sentry, Better Stack), sampling, and enrichers.
 license: MIT
 metadata:
   author: HugoRCD
@@ -211,6 +211,54 @@ export async function POST(request: NextRequest) {
 }
 ```
 
+### SvelteKit
+
+```typescript
+// src/hooks.server.ts
+import { initLogger } from 'evlog'
+import { createEvlogHooks } from 'evlog/sveltekit'
+
+initLogger({ env: { service: 'my-app' } })
+
+export const { handle, handleError } = createEvlogHooks()
+```
+
+Access the logger via `event.locals.log` in route handlers or `useLogger()` from anywhere in the call stack:
+
+```typescript
+// src/routes/api/users/[id]/+server.ts
+import { json } from '@sveltejs/kit'
+
+export const GET = ({ locals, params }) => {
+  locals.log.set({ user: { id: params.id } })
+  return json({ id: params.id })
+}
+```
+
+```typescript
+import { useLogger } from 'evlog/sveltekit'
+
+async function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+Full pipeline with drain, enrich, and tail sampling:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+export const { handle, handleError } = createEvlogHooks({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+})
+```
+
 ### Nitro v3
 
 ```typescript
@@ -289,39 +337,225 @@ export default defineNitroConfig({
 
 Import `useLogger` from `evlog/nitro` in routes.
 
+### NestJS
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common'
+import { EvlogModule } from 'evlog/nestjs'
+
+@Module({
+  imports: [EvlogModule.forRoot()],
+})
+export class AppModule {}
+```
+
+`EvlogModule.forRoot()` registers a global middleware. Use `useLogger()` to access the request-scoped logger from any controller or service:
+
+```typescript
+import { useLogger } from 'evlog/nestjs'
+
+async function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+Full pipeline with drain, enrich, and tail sampling:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+EvlogModule.forRoot({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+})
+```
+
+For async configuration with NestJS DI, use `forRootAsync()`:
+
+```typescript
+EvlogModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config) => ({
+    drain: createAxiomDrain({ token: config.get('AXIOM_TOKEN') }),
+  }),
+})
+```
+
+### Express
+
+```typescript
+import express from 'express'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/express'
+
+initLogger({ env: { service: 'my-api' } })
+
+const app = express()
+app.use(evlog())
+
+app.get('/api/users', (req, res) => {
+  req.log.set({ users: { count: 42 } })
+  res.json({ users: [] })
+})
+```
+
+Use `useLogger()` to access the logger from anywhere in the call stack without passing `req`:
+
+```typescript
+import { useLogger } from 'evlog/express'
+
+async function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+Full pipeline with drain, enrich, and tail sampling:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+app.use(evlog({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+}))
+```
+
 ### Hono
 
 ```typescript
-import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import { createRequestLogger, initLogger, createError, parseError } from 'evlog'
+import { initLogger } from 'evlog'
+import { evlog, type EvlogVariables } from 'evlog/hono'
 
-initLogger({ env: { service: 'hono-api' } })
+initLogger({ env: { service: 'my-api' } })
 
-const app = new Hono()
+const app = new Hono<EvlogVariables>()
+app.use(evlog())
 
-app.use('*', async (c, next) => {
-  const startedAt = Date.now()
-  const log = createRequestLogger({ method: c.req.method, path: c.req.path })
-  c.set('log', log)
-  try {
-    await next()
-  } catch (error) {
-    log.error(error as Error)
-    throw error
-  } finally {
-    log.emit({ status: c.res.status, duration: Date.now() - startedAt })
-  }
+app.get('/api/users', (c) => {
+  const log = c.get('log')
+  log.set({ users: { count: 42 } })
+  return c.json({ users: [] })
 })
+```
 
-app.get('/health', (c) => c.json({ ok: true }))
+Access the logger via `c.get('log')` in handlers. No `useLogger()` — use `c.get('log')` and pass it down explicitly, or use Express/Fastify/Elysia if you need `useLogger()` across async boundaries.
 
-app.onError((error, c) => {
-  const parsed = parseError(error)
-  return c.json(parsed, { status: parsed.status || 500 })
+Full pipeline with drain, enrich, and tail sampling:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+app.use(evlog({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+}))
+```
+
+### Fastify
+
+```typescript
+import Fastify from 'fastify'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/fastify'
+
+initLogger({ env: { service: 'my-api' } })
+
+const app = Fastify({ logger: false })
+await app.register(evlog)
+
+app.get('/api/users', async (request) => {
+  request.log.set({ users: { count: 42 } })
+  return { users: [] }
 })
+```
 
-serve({ fetch: app.fetch, port: 3000 })
+`request.log` is the evlog wide-event logger (shadows Fastify's built-in pino logger on the request). Fastify's pino logger remains accessible via `fastify.log`.
+
+Use `useLogger()` to access the logger from anywhere in the call stack without passing `request`:
+
+```typescript
+import { useLogger } from 'evlog/fastify'
+
+async function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+Full pipeline with drain, enrich, and tail sampling:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+await app.register(evlog, {
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+})
+```
+
+### Elysia
+
+```typescript
+import { Elysia } from 'elysia'
+import { initLogger } from 'evlog'
+import { evlog, useLogger } from 'evlog/elysia'
+
+initLogger({ env: { service: 'my-api' } })
+
+const app = new Elysia()
+  .use(evlog())
+  .get('/api/users', ({ log }) => {
+    log.set({ users: { count: 42 } })
+    return { users: [] }
+  })
+  .listen(3000)
+```
+
+Use `useLogger()` to access the logger from anywhere in the call stack:
+
+```typescript
+import { useLogger } from 'evlog/elysia'
+
+async function findUsers() {
+  const log = useLogger()
+  log.set({ db: { query: 'SELECT * FROM users' } })
+}
+```
+
+Full pipeline with drain, enrich, and tail sampling:
+
+```typescript
+import { createAxiomDrain } from 'evlog/axiom'
+
+app.use(evlog({
+  include: ['/api/**'],
+  drain: createAxiomDrain(),
+  enrich: (ctx) => { ctx.event.region = process.env.FLY_REGION },
+  keep: (ctx) => {
+    if (ctx.duration && ctx.duration > 2000) ctx.shouldKeep = true
+  },
+}))
 ```
 
 ### Cloudflare Workers
@@ -395,11 +629,13 @@ All options work in Nuxt (`evlog` key), Nitro (passed to `evlog()`), Next.js (`c
 
 | Adapter | Import | Env Vars |
 |---------|--------|----------|
-| Axiom | `evlog/axiom` | `NUXT_AXIOM_TOKEN`, `NUXT_AXIOM_DATASET` |
-| OTLP | `evlog/otlp` | `NUXT_OTLP_ENDPOINT` |
-| PostHog | `evlog/posthog` | `NUXT_POSTHOG_API_KEY`, `NUXT_POSTHOG_HOST` |
-| Sentry | `evlog/sentry` | `NUXT_SENTRY_DSN` |
-| Better Stack | `evlog/better-stack` | `NUXT_BETTER_STACK_SOURCE_TOKEN` |
+| Axiom | `evlog/axiom` | `AXIOM_TOKEN`, `AXIOM_DATASET` |
+| OTLP | `evlog/otlp` | `OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_ENDPOINT`) |
+| PostHog | `evlog/posthog` | `POSTHOG_API_KEY`, `POSTHOG_HOST` |
+| Sentry | `evlog/sentry` | `SENTRY_DSN` |
+| Better Stack | `evlog/better-stack` | `BETTER_STACK_SOURCE_TOKEN` |
+
+In Nuxt/Nitro, use the `NUXT_` prefix (e.g., `NUXT_AXIOM_TOKEN`) so values are available via `useRuntimeConfig()`. All adapters also read unprefixed variables as fallback.
 
 Setup pattern per framework:
 
@@ -410,7 +646,19 @@ export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('evlog:drain', createAxiomDrain())
 })
 
-// Next.js: in lib/evlog.ts, pass drain to createEvlog()
+// Hono / Express / Elysia: pass drain in middleware options
+import { createAxiomDrain } from 'evlog/axiom'
+app.use(evlog({ drain: createAxiomDrain() }))
+
+// Fastify: pass drain in plugin options
+import { createAxiomDrain } from 'evlog/axiom'
+await app.register(evlog, { drain: createAxiomDrain() })
+
+// NestJS: pass drain in module options
+import { createAxiomDrain } from 'evlog/axiom'
+EvlogModule.forRoot({ drain: createAxiomDrain() })
+
+// Next.js: pass drain to createEvlog()
 import { createAxiomDrain } from 'evlog/axiom'
 import { createDrainPipeline } from 'evlog/pipeline'
 const pipeline = createDrainPipeline<DrainContext>({ batch: { size: 50 } })
@@ -418,7 +666,7 @@ const drain = pipeline(createAxiomDrain())
 // then: createEvlog({ ..., drain })
 
 // Standalone: pass drain to initLogger()
-initLogger({ env: { service: 'my-app' }, drain })
+initLogger({ env: { service: 'my-app' }, drain: createAxiomDrain() })
 ```
 
 See [references/drain-pipeline.md](references/drain-pipeline.md) for batching, retry, and buffer overflow config.

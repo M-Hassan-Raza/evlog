@@ -15,6 +15,14 @@ export default function evlog(options?: NitroModuleOptions) {
       nitro.options.plugins = nitro.options.plugins || []
       nitro.options.plugins.push(resolve(_dir, 'plugin'))
 
+      // explicitly tell nitro to bundle evlog's files to correctly resolve nitro dependencies
+      if (!nitro.options.noExternals) {
+        nitro.options.noExternals = ['evlog']
+      } else if (Array.isArray(nitro.options.noExternals)) {
+        nitro.options.noExternals.push('evlog')
+      }
+      
+
       // Set error handler only if not already configured by user
       if (!nitro.options.errorHandler) {
         nitro.options.errorHandler = [resolve(_dir, 'errorHandler')]

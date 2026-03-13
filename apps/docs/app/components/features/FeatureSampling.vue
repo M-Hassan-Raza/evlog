@@ -26,6 +26,11 @@ const logs: LogEntry[] = [
   { level: 'INFO', method: 'POST', path: '/api/critical/alert', duration: 55, headKept: false, tailRescued: true },
 ]
 
+const props = defineProps<{
+  link?: string
+  linkLabel?: string
+}>()
+
 const pills = [
   { label: 'Head sampling', icon: 'i-lucide-percent' },
   { label: 'Tail sampling', icon: 'i-lucide-filter' },
@@ -93,25 +98,25 @@ function getLevelColor(level: string): string {
   <section class="py-24 md:py-32">
     <Motion
       :initial="prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }"
-      :in-view="{ opacity: 1, y: 0 }"
+      :while-in-view="{ opacity: 1, y: 0 }"
       :transition="{ duration: 0.5 }"
       :in-view-options="{ once: true }"
       class="mb-10"
     >
       <div>
-        <p class="section-label">
-          Sampling
+        <p v-if="$slots.headline" class="section-label">
+          <slot name="headline" mdc-unwrap="p" />
         </p>
         <div class="relative mb-5">
           <h2 class="section-title max-w-xl">
-            Keep what matters<span class="text-primary">.</span>
+            <slot name="title" mdc-unwrap="p" /><span class="text-primary">.</span>
           </h2>
-          <div aria-hidden="true" class="absolute inset-0 section-title max-w-xl blur-xs animate-pulse">
-            Keep what matters<span class="text-primary">.</span>
+          <div aria-hidden="true" class="absolute inset-0 section-title max-w-xl blur-xs animate-pulse pointer-events-none">
+            <slot name="title" mdc-unwrap="p" /><span class="text-primary">.</span>
           </div>
         </div>
-        <p class="max-w-lg text-sm leading-relaxed text-zinc-400">
-          Two-tier filtering: head sampling drops noise by level, tail sampling rescues critical events. Never miss errors, slow requests, or critical paths.
+        <p v-if="$slots.description" class="max-w-lg text-sm leading-relaxed text-zinc-400">
+          <slot name="description" mdc-unwrap="p" />
         </p>
         <div class="mt-5 flex flex-wrap gap-2">
           <span
@@ -123,8 +128,8 @@ function getLevelColor(level: string): string {
             {{ pill.label }}
           </span>
         </div>
-        <NuxtLink to="/core-concepts/sampling" class="mt-4 inline-flex items-center gap-1.5 font-mono text-xs text-zinc-500 hover:text-accent-blue transition-colors">
-          Sampling guide
+        <NuxtLink v-if="props.link" :to="props.link" class="mt-4 inline-flex items-center gap-1.5 font-mono text-xs text-zinc-500 hover:text-accent-blue transition-colors">
+          {{ props.linkLabel || 'Learn more' }}
           <UIcon name="i-lucide-arrow-right" class="size-3" />
         </NuxtLink>
       </div>
@@ -134,7 +139,7 @@ function getLevelColor(level: string): string {
       <!-- Left: Config code -->
       <Motion
         :initial="prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }"
-        :in-view="{ opacity: 1, y: 0 }"
+        :while-in-view="{ opacity: 1, y: 0 }"
         :transition="{ duration: 0.5, delay: 0.1 }"
         :in-view-options="{ once: true }"
       >
@@ -173,7 +178,7 @@ function getLevelColor(level: string): string {
       <!-- Right: Animated log stream -->
       <Motion
         :initial="prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }"
-        :in-view="{ opacity: 1, y: 0 }"
+        :while-in-view="{ opacity: 1, y: 0 }"
         :transition="{ duration: 0.5, delay: 0.2 }"
         :in-view-options="{ once: true }"
       >
