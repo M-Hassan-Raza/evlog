@@ -57,7 +57,7 @@ jobs:
 
       - name: Run core benchmarks
         working-directory: packages/evlog
-        run: vitest bench bench/core/
+        run: bunx vitest bench bench/core/
 
       - name: Save core baseline
         working-directory: packages/evlog
@@ -67,7 +67,7 @@ jobs:
 
       - name: Run comparison benchmarks
         working-directory: packages/evlog
-        run: vitest bench bench/comparison/
+        run: bunx vitest bench bench/comparison/
 
       - name: Save comparison baseline
         working-directory: packages/evlog
