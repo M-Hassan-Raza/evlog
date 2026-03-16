@@ -12,7 +12,12 @@ export default defineNuxtConfig({
     '/examples/elysia': { redirect: { to: '/frameworks/elysia', statusCode: 301 } },
   },
 
-  modules: ['motion-v/nuxt', 'nuxt-studio'],
+  modules: [
+    'motion-v/nuxt',
+    'nuxt-studio',
+    '@vercel/analytics',
+    '@vercel/speed-insights',
+  ],
 
   colorMode: {
     preference: 'dark',
