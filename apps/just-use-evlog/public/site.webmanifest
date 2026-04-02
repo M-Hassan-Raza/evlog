@@ -1,0 +1,15 @@
+{
+  "name": "Just fucking use evlog",
+  "short_name": "JFUE",
+  "icons": [
+    {
+      "src": "/evlog.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#030303",
+  "background_color": "#030303",
+  "display": "standalone"
+}

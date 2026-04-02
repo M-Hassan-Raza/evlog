@@ -1,0 +1,86 @@
+<script setup lang="ts">
+const { data: page, error } = await useAsyncData('landing-page', () =>
+  queryCollection('landing').path('/landing').first(),
+)
+
+if (error.value) {
+  throw createError({ statusCode: 500, message: error.value.message })
+}
+
+if (!page.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Landing content not found' })
+}
+
+const tree = computed(() => {
+  const body = toRaw(page.value?.body)
+  if (!body || typeof body !== 'object' || !('value' in body)) return null
+  return { nodes: body.value, frontmatter: {}, meta: {} }
+})
+
+const { public: pub } = useRuntimeConfig()
+const docsUrl = pub.docsUrl || 'https://www.evlog.dev'
+const siteUrl = pub.siteUrl || ''
+
+const fm = computed(() => page.value as Record<string, string>)
+
+useHead({
+  htmlAttrs: { lang: 'en' },
+  link: [{ rel: 'manifest', href: '/site.webmanifest' },],
+})
+
+useSeoMeta({
+  title: () => fm.value.title,
+  description: () => fm.value.description,
+  ogTitle: () => fm.value.ogTitle || fm.value.title,
+  ogDescription: () => fm.value.ogDescription || fm.value.description,
+  ogImage: `${siteUrl}/og.jpg`,
+  ogImageWidth: 1200,
+  ogImageHeight: 630,
+  twitterCard: 'summary_large_image',
+  twitterSite: '@hugorcd',
+  twitterImage: `${siteUrl}/og.jpg`,
+})
+</script>
+
+<template>
+  <div class="relative min-h-dvh text-default">
+    <div class="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-white/[0.03] rounded-full blur-3xl" aria-hidden="true" />
+    <div class="relative z-10">
+      <main class="mx-auto max-w-2xl px-6 pb-24 pt-14 md:px-8 md:pt-20 md:pb-32">
+        <LandingComark v-if="tree" :tree />
+      </main>
+
+      <footer class="border-t border-default px-6 py-10 md:px-8">
+        <div class="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-y-4 text-xs text-muted">
+          <span class="font-pixel text-[10px] tracking-widest uppercase">evlog · MIT</span>
+          <div class="flex items-center gap-6">
+            <NuxtLink
+              :to="docsUrl"
+              class="hover:text-highlighted transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Docs
+            </NuxtLink>
+            <NuxtLink
+              to="https://github.com/hugorcd/evlog"
+              class="hover:text-highlighted transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              GitHub
+            </NuxtLink>
+            <NuxtLink
+              to="https://x.com/hugorcd"
+              class="hover:text-highlighted transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              @hugorcd
+            </NuxtLink>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+</template>

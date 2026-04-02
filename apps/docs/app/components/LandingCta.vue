@@ -2,6 +2,11 @@
 import { Shader, Aurora } from 'shaders/vue'
 import { Motion } from 'motion-v'
 
+const { public: pub } = useRuntimeConfig()
+const justUseEvlogUrl = computed(() =>
+  typeof pub.justUseEvlogUrl === 'string' ? pub.justUseEvlogUrl.trim() : '',
+)
+
 const prefersReducedMotion = ref(false)
 
 const shipByTime = ref('')
@@ -27,19 +32,16 @@ onMounted(() => {
 
 <template>
   <section class="relative overflow-hidden flex flex-col">
-    <!-- Top fade mask: smooth transition from dark page into gradient -->
     <div
       class="absolute inset-x-0 top-0 h-24 z-[1] pointer-events-none"
       style="background: linear-gradient(180deg, #000000 0%, transparent 100%)"
     />
 
-    <!-- Gradient: dark → blue → white (smooth diffuse) -->
     <div
       class="absolute inset-0"
       style="background: linear-gradient(180deg, #000000 0%, #000711 6%, #001133 14%, #002266 22%, #0044CC 32%, #0055FF 42%, #0077FF 52%, #0099FF 62%, #44BBFF 72%, #88D4FF 80%, #BBE6FF 88%, #E0F3FF 94%, #FFFFFF 100%)"
     />
 
-    <!-- Aurora shader overlay -->
     <ClientOnly>
       <div class="absolute inset-0 mix-blend-screen opacity-30">
         <div class="size-full">
@@ -60,7 +62,6 @@ onMounted(() => {
       </div>
     </ClientOnly>
 
-    <!-- CTA content — in the blue zone -->
     <div class="relative z-10 pt-24 md:pt-32 text-center max-w-2xl mx-auto px-6">
       <Motion
         :initial="prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }"
@@ -97,6 +98,18 @@ onMounted(() => {
               </template>
             </UButton>
             <UButton
+              v-if="justUseEvlogUrl"
+              :to="justUseEvlogUrl"
+              target="_blank"
+              size="lg"
+              class="bg-white/10 border border-white/40 text-white hover:bg-white/20 backdrop-blur-sm"
+            >
+              <template #leading>
+                <UIcon name="i-lucide-megaphone" class="size-4" />
+              </template>
+              Just fucking use evlog
+            </UButton>
+            <UButton
               to="https://github.com/hugorcd/evlog"
               target="_blank"
               size="lg"
@@ -112,7 +125,6 @@ onMounted(() => {
       </Motion>
     </div>
 
-    <!-- Inline footer — pinned to bottom of white zone -->
     <div class="relative z-10 mt-auto pt-32 md:pt-44 pb-4">
       <div class="max-w-4xl mx-auto px-6 flex items-center justify-between">
         <div class="text-xs font-mono italic tracking-tight text-zinc-500">

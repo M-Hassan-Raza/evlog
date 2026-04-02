@@ -13,6 +13,7 @@
     "dev": "turbo run dev --filter=evlog-playground",
     "dev:prepare": "turbo run dev:prepare",
     "docs": "turbo run dev --filter=evlog-docs",
+    "dev:just-use-evlog": "turbo run dev --filter=evlog-just-use",
     "playground:nuxt": "turbo run dev --filter=evlog-playground",
     "playground:next": "turbo run dev --filter=evlog-next-playground",
     "playground:nitro": "turbo run dev --filter=evlog-nitro-playground",

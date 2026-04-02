@@ -3,8 +3,12 @@ import type { FooterColumn } from '@nuxt/ui'
 
 const route = useRoute()
 const isLanding = computed(() => route.path === '/')
+const { public: pub } = useRuntimeConfig()
+const justUseEvlogUrl = computed(() =>
+  typeof pub.justUseEvlogUrl === 'string' ? pub.justUseEvlogUrl.trim() : '',
+)
 
-const columns: FooterColumn[] = [
+const columns = computed<FooterColumn[]>(() => [
   {
     label: 'Resources',
     children: [
@@ -12,6 +16,13 @@ const columns: FooterColumn[] = [
         label: 'Documentation',
         to: '/getting-started/introduction'
       },
+      ...(justUseEvlogUrl.value
+        ? [{
+            label: 'Just fucking use evlog',
+            to: justUseEvlogUrl.value,
+            target: '_blank' as const,
+          }]
+        : []),
       {
         label: 'Releases',
         to: 'https://github.com/hugorcd/evlog/releases',
@@ -39,7 +50,7 @@ const columns: FooterColumn[] = [
       }
     ]
   }
-]
+])
 </script>
 
 <template>
