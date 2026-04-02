@@ -1,0 +1,67 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme {
+  --font-sans: "Geist", sans-serif;
+  --font-mono: "Geist Mono", monospace;
+  --font-pixel: "Geist Pixel Line", monospace;
+}
+
+:root {
+  --ui-radius: 0;
+  --ui-primary: #2853FF;
+}
+
+.dark {
+  --ui-bg: #030303;
+  --ui-bg-muted: #0a0a0c;
+  --ui-bg-elevated: #0e0e11;
+  --ui-border: #1a1a20;
+  --ui-border-muted: #141418;
+}
+
+@layer base {
+  :root {
+    @apply selection:bg-primary selection:text-white;
+  }
+
+  html, body {
+    @apply bg-default text-highlighted;
+  }
+
+  html.dark .shiki span {
+    color: var(--shiki-dark) !important;
+    font-style: var(--shiki-dark-font-style) !important;
+    font-weight: var(--shiki-dark-font-weight) !important;
+    text-decoration: var(--shiki-dark-text-decoration) !important;
+  }
+}
+
+.landing-h1 {
+  @apply font-pixel text-5xl leading-[1.1] tracking-tight text-highlighted md:text-6xl lg:text-7xl;
+}
+
+.landing-h2 {
+  @apply font-pixel text-3xl leading-[1.2] tracking-tight text-highlighted md:text-4xl;
+}
+
+.landing-prose {
+  @apply text-muted;
+}
+
+.landing-prose :where(pre) {
+  @apply bg-elevated;
+}
+
+pre.framework-pre {
+  @apply bg-elevated text-muted font-mono;
+  padding: 1.25rem 1.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.landing-prose .vitrine-eyebrow {
+  @apply mb-1 font-pixel text-[10px] uppercase tracking-[0.28em] text-muted;
+}
