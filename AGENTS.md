@@ -54,6 +54,7 @@ evlog/
 │       │   ├── vite/        # Vite plugin (evlog/vite)
 │       │   ├── shared/      # Toolkit: building blocks for custom framework integrations (evlog/toolkit)
 │       │   ├── ai/          # AI SDK integration (evlog/ai)
+│       │   ├── better-auth/ # Better Auth integration (evlog/better-auth)
 │       │   ├── adapters/    # Log drain adapters (Axiom, OTLP, HyperDX, PostHog, Sentry, Better Stack, Datadog)
 │       │   ├── enrichers/   # Built-in enrichers (UserAgent, Geo, RequestSize, TraceContext)
 │       │   └── runtime/     # Runtime code (client/, server/, utils/)
@@ -145,6 +146,26 @@ For embedding calls, use `captureEmbed`:
 const { embedding, usage } = await embed({ model: embeddingModel, value: query })
 ai.captureEmbed({ usage })
 ```
+
+### Better Auth Integration
+
+Use `evlog/better-auth` to automatically identify users on every request. Sets `userId`, `user`, and `session` on the wide event from a Better Auth session.
+
+1. **`identifyUser(log, session)`** — core helper, sets `userId`, `user`, `session` from a Better Auth session
+2. **`createAuthIdentifier(auth)`** — Nitro `request` hook factory for automatic session resolution on every request
+3. **`createAuthMiddleware(auth)`** — framework-agnostic, returns `(log, headers) => Promise<void>`
+
+```typescript
+// server/plugins/evlog-auth.ts
+import { createAuthIdentifier } from 'evlog/better-auth'
+import { auth } from '~/lib/auth'
+
+export default defineNitroPlugin((nitroApp) => {
+  nitroApp.hooks.hook('request', createAuthIdentifier(auth))
+})
+```
+
+Client-side identity sync uses `setIdentity()`/`clearIdentity()` in a composable that watches the Better Auth session.
 
 ### Structured Errors
 
