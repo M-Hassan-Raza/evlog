@@ -91,6 +91,7 @@ A task is complete when **all** of the following pass:
 
 ## When Stuck
 
+- Docs site SSR / duplicate Vue (`vaul-vue`, `renderSlot` / `.ce`) → `patches/README.md` (Bun `patchedDependencies`)
 - Tests fail after 3 attempts → stop, report the failing test with full output
 - Missing dependency → check `package.json` first, then ask
 - Unsure about architecture → read the relevant SKILL.md or ask

@@ -10,7 +10,6 @@
   "license": "MIT",
   "packageManager": "bun@1.2.22",
   "scripts": {
-    "postinstall": "node scripts/dedupe-vaul-vue.mjs",
     "dev": "turbo run dev --filter=evlog-playground",
     "dev:prepare": "turbo run dev:prepare",
     "docs": "turbo run dev --filter=evlog-docs",
@@ -78,5 +77,8 @@
   ],
   "overrides": {
     "vue": "3.5.32"
+  },
+  "patchedDependencies": {
+    "vaul-vue@0.4.1": "patches/vaul-vue@0.4.1.patch"
   }
 }

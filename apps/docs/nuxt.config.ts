@@ -1,25 +1,5 @@
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-/** Monorepo root — pin one Vue runtime for Vite + SSR (see vaul-vue nested dep). */
-const monorepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-
 export default defineNuxtConfig({
   extends: ['docus'],
-
-  // vaul-vue (@nuxt/ui) can ship a nested `vue`; Node SSR resolves it and breaks renderSlot (`.ce`).
-  alias: {
-    vue: resolve(monorepoRoot, 'node_modules/vue'),
-    'vue-router': resolve(monorepoRoot, 'node_modules/vue-router'),
-  },
-  vite: {
-    resolve: {
-      dedupe: ['vue', 'vue-router'],
-    },
-    ssr: {
-      noExternal: ['vaul-vue'],
-    },
-  },
 
   routeRules: {
     '/getting-started': { redirect: { to: '/getting-started/introduction', statusCode: 301 } },
