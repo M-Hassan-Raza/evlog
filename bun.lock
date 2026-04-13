@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "evlog-monorepo",
@@ -19,6 +18,8 @@
         "typescript": "^6.0.2",
         "vitest": "^4.1.4",
         "vue-tsc": "^3.2.6",
+        "zod": "^4.3.6",
+        "zod-to-json-schema": "^3.25.2",
       },
     },
     "apps/docs": {
